@@ -1,1 +1,1 @@
-[{"id":1,"name":"foo","status":"todo","CreatedAt":"2025-08-09 23:15:17","UpdatedAt":"2025-08-09 23:15:17"},{"id":2,"name":"foo","status":"todo","CreatedAt":"2025-08-09 23:15:26","UpdatedAt":"2025-08-09 23:15:26"}]
+[{"id":1,"name":"foo","status":"todo","createdAt":"2025-08-09 23:15:17","updatedAt":"2025-08-09 23:15:17"},{"id":2,"name":"foo","status":"todo","createdAt":"2025-08-09 23:15:26","updatedAt":"2025-08-09 23:15:26"},{"id":3,"name":"Reading","status":"todo","createdAt":"2025-08-10 13:32:02","updatedAt":"2025-08-10 13:38:49"}]

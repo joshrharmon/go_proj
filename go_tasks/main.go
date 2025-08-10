@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -56,13 +57,6 @@ func main() {
 					return
 				}
 			} else {
-				// Open JSON file
-				fileHandle, err = os.OpenFile("tasks.json", os.O_APPEND, 0644)
-				if err != nil {
-					fmt.Println("Error opening file: ", err)
-					return
-				}
-
 				// Decode JSON file
 				fileContents, err := os.ReadFile("tasks.json")
 				if err != nil {
@@ -71,6 +65,12 @@ func main() {
 				}
 
 				if len(fileContents) != 0 {
+					// Open JSON file
+					fileHandle, err = os.Open("tasks.json")
+					if err != nil {
+						fmt.Println("Error opening file: ", err)
+						return
+					}
 					jsonDecoder = json.NewDecoder(fileHandle)
 					if err := jsonDecoder.Decode(&loadedTasks); err != nil {
 						fmt.Println("Error decoding JSON: ", err)
@@ -88,6 +88,8 @@ func main() {
 			switch command {
 			case "add":
 				add(cmdArgs, loadedTasks)
+			case "update":
+				update(cmdArgs, loadedTasks)
 			case "list":
 				list(loadedTasks)
 			}
@@ -115,7 +117,6 @@ func add(cmdArgs []string, loadedTasks []Task) {
 			UpdatedAt: getCurrentTimeString(),
 		}
 		loadedTasks = append(loadedTasks, task)
-
 		fileHandle, err := os.Create("tasks.json")
 		if err != nil {
 			fmt.Println("Error opening file for writing: ", err)
@@ -137,6 +138,56 @@ func add(cmdArgs []string, loadedTasks []Task) {
 	}
 }
 
+func update(cmdArgs []string, loadedTasks []Task) {
+	if len(cmdArgs) < 3 {
+		fmt.Println("Error, usage: update [ID#] \"New task name\"")
+		return
+	} else {
+		// Check for integer value in update command
+		cmdArgId := cmdArgs[1]
+		cmdArgNewName := cmdArgs[2]
+		if id, err := strconv.Atoi(cmdArgId); err != nil {
+			fmt.Println("Please enter an ID as such: update [ID#] \"New task name\"")
+			return
+		} else if taskToUpdate, indexOfTask, err := findTask(loadedTasks, id); err != nil {
+			fmt.Printf("Error: %s", err)
+			return
+		} else {
+			task := Task{
+				ID:        id,
+				Name:      cmdArgNewName,
+				Status:    taskToUpdate.Status,
+				CreatedAt: taskToUpdate.CreatedAt,
+				UpdatedAt: getCurrentTimeString(),
+			}
+			loadedTasks[indexOfTask] = task
+
+			fileHandle, err := os.Create("tasks.json")
+			if err != nil {
+				fmt.Println("Error opening file for writing: ", err)
+				return
+			}
+			defer fileHandle.Close()
+
+			jsonEncoder := json.NewEncoder(fileHandle)
+			if err := jsonEncoder.Encode(loadedTasks); err != nil {
+				fmt.Println("Error writing JSON: ", err)
+				return
+			}
+
+			if loadedTasks[indexOfTask].Name == cmdArgNewName {
+				fmt.Printf("Task \"%d\" successfully updated.\n", task.ID)
+			} else {
+				fmt.Printf("There was an error updating task \"%d\".\n", task.ID)
+			}
+		}
+	}
+
+}
+
+/*
+ * Basic list command to show current tasks
+ */
 func list(loadedTasks []Task) {
 	for _, task := range loadedTasks {
 		fmt.Printf("ID: %d / Status: %s / Task: %s | Created: %s, Updated: %s\n",
@@ -158,6 +209,16 @@ func findLatestId(loadedTasks []Task) int {
 		latestId = loadedTasks[len(loadedTasks)-1].ID
 	}
 	return latestId
+}
+
+// Find task by ID
+func findTask(loadedTasks []Task, id int) (Task Task, index int, error error) {
+	for i, task := range loadedTasks {
+		if task.ID == id {
+			return task, i, nil
+		}
+	}
+	return Task, -1, fmt.Errorf("Task with ID %d was not found.", id)
 }
 
 func getCurrentTimeString() string {
