@@ -88,7 +88,7 @@ func main() {
 			switch command {
 			case "add":
 				add(cmdArgs, loadedTasks)
-			case "update":
+			case "update", "delete":
 				update(cmdArgs, loadedTasks)
 			case "list":
 				list(loadedTasks)
@@ -139,20 +139,32 @@ func add(cmdArgs []string, loadedTasks []Task) {
 }
 
 func update(cmdArgs []string, loadedTasks []Task) {
-	if len(cmdArgs) < 3 {
+	if len(cmdArgs) < 0 {
 		fmt.Println("Error, usage: update [ID#] \"New task name\"")
 		return
 	} else {
 		// Check for integer value in update command
+		cmdArgCmd := cmdArgs[0]
 		cmdArgId := cmdArgs[1]
-		cmdArgNewName := cmdArgs[2]
-		if id, err := strconv.Atoi(cmdArgId); err != nil {
-			fmt.Println("Please enter an ID as such: update [ID#] \"New task name\"")
+		var cmdArgNewName string
+		if len(cmdArgs) > 2 {
+			cmdArgNewName = cmdArgs[2]
+		}
+		var err error
+		var id int
+		var indexOfTask int
+		var taskToUpdate Task
+
+		if id, err = strconv.Atoi(cmdArgId); err != nil {
+			fmt.Printf("Please enter an ID as such: update [ID#] \"New task name\" OR delete [ID#]")
 			return
-		} else if taskToUpdate, indexOfTask, err := findTask(loadedTasks, id); err != nil {
+		} else if taskToUpdate, indexOfTask, err = findTask(loadedTasks, id); err != nil {
 			fmt.Printf("Error: %s", err)
 			return
-		} else {
+		}
+
+		switch cmdArgCmd {
+		case "update":
 			task := Task{
 				ID:        id,
 				Name:      cmdArgNewName,
@@ -161,28 +173,39 @@ func update(cmdArgs []string, loadedTasks []Task) {
 				UpdatedAt: getCurrentTimeString(),
 			}
 			loadedTasks[indexOfTask] = task
+		case "delete":
+			loadedTasks = removeFromSlice(loadedTasks, indexOfTask)
+		}
 
-			fileHandle, err := os.Create("tasks.json")
-			if err != nil {
-				fmt.Println("Error opening file for writing: ", err)
-				return
-			}
-			defer fileHandle.Close()
+		fileHandle, err := os.Create("tasks.json")
+		if err != nil {
+			fmt.Println("Error opening file for writing: ", err)
+			return
+		}
+		defer fileHandle.Close()
 
-			jsonEncoder := json.NewEncoder(fileHandle)
-			if err := jsonEncoder.Encode(loadedTasks); err != nil {
-				fmt.Println("Error writing JSON: ", err)
-				return
-			}
+		jsonEncoder := json.NewEncoder(fileHandle)
+		if err := jsonEncoder.Encode(loadedTasks); err != nil {
+			fmt.Println("Error writing JSON: ", err)
+			return
+		}
 
+		if cmdArgCmd == "update" {
 			if loadedTasks[indexOfTask].Name == cmdArgNewName {
-				fmt.Printf("Task \"%d\" successfully updated.\n", task.ID)
+				fmt.Printf("Task successfully updated.\n")
 			} else {
-				fmt.Printf("There was an error updating task \"%d\".\n", task.ID)
+				fmt.Printf("There was an error updating task\n")
+				return
+			}
+		} else if cmdArgCmd == "delete" {
+			if _, i, _ := findTask(loadedTasks, id); i == -1 {
+				fmt.Printf("Task \"%s\" successfully deleted.\n", cmdArgId)
+			} else {
+				fmt.Printf("Task with ID \"%s\" was not deleted due to an error.\n", cmdArgId)
 			}
 		}
-	}
 
+	}
 }
 
 /*
@@ -209,6 +232,11 @@ func findLatestId(loadedTasks []Task) int {
 		latestId = loadedTasks[len(loadedTasks)-1].ID
 	}
 	return latestId
+}
+
+// Removes element from slice
+func removeFromSlice(slice []Task, indexToRemove int) []Task {
+	return append(slice[:indexToRemove], slice[indexToRemove+1:]...)
 }
 
 // Find task by ID
