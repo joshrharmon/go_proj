@@ -88,10 +88,10 @@ func main() {
 			switch command {
 			case "add":
 				add(cmdArgs, loadedTasks)
-			case "update", "delete":
+			case "update", "delete", "mark-in-progress", "mark-done":
 				update(cmdArgs, loadedTasks)
 			case "list":
-				list(loadedTasks)
+				list(cmdArgs, loadedTasks)
 			}
 
 		} else {
@@ -139,8 +139,8 @@ func add(cmdArgs []string, loadedTasks []Task) {
 }
 
 func update(cmdArgs []string, loadedTasks []Task) {
-	if len(cmdArgs) < 0 {
-		fmt.Println("Error, usage: update [ID#] \"New task name\"")
+	if len(cmdArgs) < 2 {
+		fmt.Println("Error, usage: update [ID#] \"New task name\" OR \ndelete [ID#] OR \nmark-in-progress [ID#] OR\nmark-done [ID#]")
 		return
 	} else {
 		// Check for integer value in update command
@@ -154,7 +154,9 @@ func update(cmdArgs []string, loadedTasks []Task) {
 		var id int
 		var indexOfTask int
 		var taskToUpdate Task
+		var newTask Task
 
+		// Run verification on arguments
 		if id, err = strconv.Atoi(cmdArgId); err != nil {
 			fmt.Printf("Please enter an ID as such: update [ID#] \"New task name\" OR delete [ID#]")
 			return
@@ -163,16 +165,32 @@ func update(cmdArgs []string, loadedTasks []Task) {
 			return
 		}
 
-		switch cmdArgCmd {
-		case "update":
-			task := Task{
+		// If it is an update-type command, we use similar structures to update
+		if cmdArgCmd == "update" || cmdArgCmd == "mark-in-progress" || cmdArgCmd == "mark-done" {
+			var taskName string = taskToUpdate.Name
+			var taskStatus string = taskToUpdate.Status
+
+			switch cmdArgCmd {
+			case "update":
+				taskName = cmdArgNewName
+			case "mark-in-progress":
+				taskStatus = "in-progress"
+			case "mark-done":
+				taskStatus = "done"
+			}
+
+			newTask = Task{
 				ID:        id,
-				Name:      cmdArgNewName,
-				Status:    taskToUpdate.Status,
+				Name:      taskName,
+				Status:    taskStatus,
 				CreatedAt: taskToUpdate.CreatedAt,
 				UpdatedAt: getCurrentTimeString(),
 			}
-			loadedTasks[indexOfTask] = task
+		}
+
+		switch cmdArgCmd {
+		case "update", "mark-in-progress", "mark-done":
+			loadedTasks[indexOfTask] = newTask
 		case "delete":
 			loadedTasks = removeFromSlice(loadedTasks, indexOfTask)
 		}
@@ -190,14 +208,29 @@ func update(cmdArgs []string, loadedTasks []Task) {
 			return
 		}
 
-		if cmdArgCmd == "update" {
+		switch cmdArgCmd {
+		case "update":
 			if loadedTasks[indexOfTask].Name == cmdArgNewName {
 				fmt.Printf("Task successfully updated.\n")
 			} else {
 				fmt.Printf("There was an error updating task\n")
 				return
 			}
-		} else if cmdArgCmd == "delete" {
+		case "mark-in-progress":
+			if loadedTasks[indexOfTask].Status == "in-progress" {
+				fmt.Printf("Task successfully marked as \"todo\".\n")
+			} else {
+				fmt.Printf("There was an error marking the task as \"todo\"\n")
+				return
+			}
+		case "mark-done":
+			if loadedTasks[indexOfTask].Status == "done" {
+				fmt.Printf("Task successfully marked as \"done\".\n")
+			} else {
+				fmt.Printf("There was an error marking the task as \"done\"\n")
+				return
+			}
+		case "delete":
 			if _, i, _ := findTask(loadedTasks, id); i == -1 {
 				fmt.Printf("Task \"%s\" successfully deleted.\n", cmdArgId)
 			} else {
@@ -211,16 +244,36 @@ func update(cmdArgs []string, loadedTasks []Task) {
 /*
  * Basic list command to show current tasks
  */
-func list(loadedTasks []Task) {
-	for _, task := range loadedTasks {
-		fmt.Printf("ID: %d / Status: %s / Task: %s | Created: %s, Updated: %s\n",
-			task.ID,
-			task.Status,
-			task.Name,
-			task.CreatedAt,
-			task.UpdatedAt,
-		)
+func list(cmdArgs []string, loadedTasks []Task) {
+	if len(loadedTasks) == 0 {
+		fmt.Printf("There are no tasks in the JSON file.\n")
+	} else {
+		for _, task := range loadedTasks {
+			if len(cmdArgs) == 2 {
+				if cmdArgs[1] != "" {
+					if cmdArgs[1] == "done" && task.Status == "done" {
+						listPrint(task)
+					} else if cmdArgs[1] == "in-progress" && task.Status == "in-progress" {
+						listPrint(task)
+					} else if cmdArgs[1] == "todo" && task.Status == "todo" {
+						listPrint(task)
+					}
+				}
+			} else {
+				listPrint(task)
+			}
+		}
 	}
+}
+
+func listPrint(task Task) {
+	fmt.Printf("ID: %d / Status: %s / Task: %s | Created: %s, Updated: %s\n",
+		task.ID,
+		task.Status,
+		task.Name,
+		task.CreatedAt,
+		task.UpdatedAt,
+	)
 }
 
 // Will return the last ID
@@ -246,7 +299,7 @@ func findTask(loadedTasks []Task, id int) (Task Task, index int, error error) {
 			return task, i, nil
 		}
 	}
-	return Task, -1, fmt.Errorf("Task with ID %d was not found.", id)
+	return Task, -1, fmt.Errorf("Task with ID %d was not found.\n", id)
 }
 
 func getCurrentTimeString() string {
